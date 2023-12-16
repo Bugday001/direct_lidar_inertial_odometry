@@ -181,7 +181,8 @@ void dlio::OdomNode::getParams() {
 
   // Version
   dlio::declare_param(this, "version", this->version_, "0.0.0");
-
+  //sensor type
+  dlio::declare_param(this, "sensorType/useLivoxSensor", this->useLivoxSensor_, false);
   // Frames
   dlio::declare_param(this, "frames/odom", this->odom_frame, "odom");
   dlio::declare_param(this, "frames/baselink", this->baselink_frame, "base_link");
@@ -516,7 +517,10 @@ void dlio::OdomNode::getScanFromROS(const sensor_msgs::msg::PointCloud2::SharedP
       break;
     }
   }
-
+  // set in param to use livox
+  if(this->useLivoxSensor_) {
+    this->sensor = dlio::SensorType::LIVOX;
+  }
   if (this->sensor == dlio::SensorType::UNKNOWN) {
     this->deskew_ = false;
   }
@@ -851,9 +855,15 @@ void dlio::OdomNode::callbackImu(const sensor_msgs::msg::Imu::SharedPtr imu_raw)
   ang_vel[1] = imu->angular_velocity.y;
   ang_vel[2] = imu->angular_velocity.z;
 
-  lin_accel[0] = imu->linear_acceleration.x;
-  lin_accel[1] = imu->linear_acceleration.y;
-  lin_accel[2] = imu->linear_acceleration.z;
+  if (this->useLivoxSensor_) {
+    lin_accel[0] = imu->linear_acceleration.x * this->gravity_;
+    lin_accel[1] = imu->linear_acceleration.y * this->gravity_;
+    lin_accel[2] = imu->linear_acceleration.z * this->gravity_;
+  } else {
+    lin_accel[0] = imu->linear_acceleration.x;
+    lin_accel[1] = imu->linear_acceleration.y;
+    lin_accel[2] = imu->linear_acceleration.z;
+  }
 
   if (this->first_imu_stamp == 0.) {
     this->first_imu_stamp = imu_stamp_secs;

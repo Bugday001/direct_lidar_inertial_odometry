@@ -162,7 +162,8 @@ private:
 
   // Sensor Type
   dlio::SensorType sensor;
-
+  bool useLivoxSensor_;
+  
   // Frames
   std::string odom_frame;
   std::string baselink_frame;
