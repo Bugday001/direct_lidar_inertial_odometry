@@ -632,6 +632,16 @@ void dlio::OdomNode::deskewPointcloud() {
     extract_point_time = [&sweep_ref_time](boost::range::index_value<PointType&, long> pt)
       { return pt.value().timestamp; };
 
+  } else if (this->sensor == dlio::SensorType::LIVOX) {
+
+    point_time_cmp = [](const PointType& p1, const PointType& p2)
+      { return p1.timestamp < p2.timestamp; };
+    point_time_neq = [](boost::range::index_value<PointType&, long> p1,
+                        boost::range::index_value<PointType&, long> p2)
+      { return p1.value().timestamp != p2.value().timestamp; };
+    extract_point_time = [&sweep_ref_time](boost::range::index_value<PointType&, long> pt)
+      { return pt.value().timestamp * 1e-9f; };
+
   }
 
   // copy points into deskewed_scan_ in order of timestamp
@@ -646,21 +656,32 @@ void dlio::OdomNode::deskewPointcloud() {
   // extract timestamps from points and put them in their own list
   std::vector<double> timestamps;
   std::vector<int> unique_time_indices;
+
+  double offset = 0.0;
+  if (this->useLivoxSensor_) {
+    offset = sweep_ref_time - extract_point_time(*points_unique_timestamps.begin());
+  }
+
+
   for (auto it = points_unique_timestamps.begin(); it != points_unique_timestamps.end(); it++) {
-    timestamps.push_back(extract_point_time(*it));
+    timestamps.push_back(extract_point_time(*it) + offset);
     unique_time_indices.push_back(it->index());
   }
   unique_time_indices.push_back(deskewed_scan_->points.size());
-
+  int i = 5;
+  if(this->imu_calibrated) {
+    RCLCPP_FATAL(this->get_logger(),"size%d!!!!!", this->imu_buffer.size());
+    i = -1;
+  }
   int median_pt_index = timestamps.size() / 2;
   this->scan_stamp = timestamps[median_pt_index]; // set this->scan_stamp to the timestamp of the median point
 
-  // don't process scans until IMU data is present
+  // don't process scans until IMU data is present1705894586.3127117 1705894633.5049305
   if (!this->first_valid_scan) {
     if (this->imu_buffer.empty() || this->scan_stamp <= this->imu_buffer.back().stamp) {
       return;
     }
-
+    RCLCPP_FATAL(this->get_logger(),"success!!!!!");
     this->first_valid_scan = true;
     this->T_prior = this->T; // assume no motion for the first scan
     pcl::transformPointCloud (*deskewed_scan_, *deskewed_scan_, this->T_prior * this->extrinsics.baselink2lidar_T);
